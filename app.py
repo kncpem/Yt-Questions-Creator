@@ -127,7 +127,7 @@ if st.button("Get Detailed Notes"):
             formatted_lines = []
             for line in lines:
                 if line.startswith("Topic"):
-                    formatted_lines.append(f"**{line}**")  # Make the topic name larger
+                    formatted_lines.append(f"## {line}")  # Make the topic name larger
                 else:
                     formatted_lines.append(line.replace("Q", "\n\nQ").replace("A", "\nA"))
 
