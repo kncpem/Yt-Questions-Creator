@@ -8,6 +8,9 @@ from fpdf import FPDF
 from groq import Groq
 from prompts import conceptual_prompt_template, factual_prompt_template, mathematical_prompt_template
 import re
+import subprocess
+from pdf_feature import generate_question_answers
+from PyPDF2 import PdfReader
 
 # Ensure the API keys are loaded correctly
 if 'GOOGLE_API_KEY' not in os.environ:
@@ -71,6 +74,9 @@ def generate_groq_content(transcript_text, prompt, model):
     except Exception as e:
         st.error(f"Error generating content: {e}")
         return None
+    
+def run_pdf_feature():
+    subprocess.run(["streamlit", "run", "pdf_feature.py"])
 
 # Function to save text as PDF
 def save_text_as_pdf(text, filename):
@@ -83,22 +89,29 @@ def save_text_as_pdf(text, filename):
 
 # Layout of the Streamlit app
 st.sidebar.title("Settings")
-llm_choice = st.sidebar.selectbox("Select LLM", ["gemini-pro", "llama3-8b-8192"])  # Add other Groq models if available
+llm_choice = st.sidebar.selectbox("Select LLM", ["gemini-pro", "llama3-8b-8192", "mixtral-8x7b-32768", "whisper-large-v3"])  # Add other Groq models if available
 course_type = st.sidebar.selectbox("Select the course type", ["Conceptual", "Factual", "Mathematical / Calculative"])
-word_limit = st.sidebar.selectbox("Select Word Limit", ["Short (100 words)", "Medium (250 words)", "Detailed (500 words)"])
-thumbnail_size = st.sidebar.slider("Thumbnail Size", min_value=100, max_value=400, value=200)
+# word_limit = st.sidebar.selectbox("Select Word Limit", ["Short (100 words)", "Medium (250 words)", "Detailed (500 words)"])
+# thumbnail_size = st.sidebar.slider("Thumbnail Size", min_value=100, max_value=400, value=200)
 
-word_limit_value = {"Short (100 words)": "100", "Medium (250 words)": "250", "Detailed (500 words)": "500"}[word_limit]
+# word_limit_value = {"Short (100 words)": "100", "Medium (250 words)": "250", "Detailed (500 words)": "500"}[word_limit]
 
-st.title("YouTube Transcript to Detailed Notes Converter")
-youtube_link = st.text_input("Enter your YouTube video link here:")
+st.title("Generate Question Answers from Youtube Videos")
+# Create two columns
+col1, col2 = st.columns(2)
 
-if youtube_link:
-    try:
-        video_id = youtube_link.split("v=")[1].split("&")[0]
-        st.image(f"https://img.youtube.com/vi/{video_id}/0.jpg", width=thumbnail_size)
-    except IndexError:
-        st.error("Invalid YouTube URL format. Please enter a valid link.")
+# Place the text input box in the first column
+with col1:
+    youtube_link = st.text_input("Enter your YouTube video link here:")
+
+# Place the image in the second column
+with col2:
+    if youtube_link:
+        try:
+            video_id = youtube_link.split("v=")[1].split("&")[0]
+            st.image(f"https://img.youtube.com/vi/{video_id}/0.jpg", width=300)
+        except IndexError:
+            st.error("Invalid YouTube URL format. Please enter a valid link.")
 
 if st.button("Get Detailed Notes"):
     transcript_text = extract_transcript_details(youtube_link)
@@ -111,7 +124,7 @@ if st.button("Get Detailed Notes"):
         elif course_type == "Mathematical / Calculative":
             prompt_template = mathematical_prompt_template
         
-        prompt = prompt_template.format(word_limit=word_limit_value)
+        prompt = prompt_template
         
         if llm_choice == "gemini-pro":
             summary = generate_gemini_content(transcript_text, prompt)
@@ -147,3 +160,15 @@ if st.button("Get Detailed Notes"):
                             file_name=f"{pdf_filename}.pdf",
                             mime="application/pdf"
                         )
+
+# Add PDF processing feature
+st.header("PDF Question Answer Generator")
+pdf_file = st.file_uploader("Upload a PDF file", type=["pdf"])
+
+if pdf_file is not None:
+    pdf_reader = PdfReader(pdf_file)
+    pdf_text = ""
+    for page in pdf_reader.pages:
+        pdf_text += page.extract_text()
+    
+    st.write(generate_question_answers(pdf_text))
